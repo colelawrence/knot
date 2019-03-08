@@ -1,0 +1,41 @@
+version: '3'
+
+services:
+  minio1:
+    image: minio/minio:RELEASE.2019-02-20T22-44-29Z
+    volumes:
+    - ./data/objects:/export
+    - ./data/.minio:/root/.minio
+    ports:
+    - "9000:9000"
+    environment:
+      MINIO_ACCESS_KEY: minioaccesskey
+      MINIO_SECRET_KEY: miniosecretaccesskey
+    command: server /export
+  postgres1:
+    image: postgres:11.2-alpine
+    volumes:
+    - ./data/db:/var/lib/postgresql/data
+    ports:
+    - "5432:5432"
+  redis1:
+    image: redis:5.0-alpine
+    volumes:
+    - ./data/mem:/data
+    - ./config/redis:/config
+    ports:
+    - "6379:6379"
+    command: redis-server /config/redis.conf
+  hasura1:
+    image: hasura/graphql-engine:v1.0.0-alpha39
+    ports:
+    - "8080:8080"
+    depends_on:
+    - "postgres1"
+    restart: always
+    environment:
+      HASURA_GRAPHQL_DATABASE_URL: postgres://postgres:@postgres1:5432/knot
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true" # set to "false" to disable console
+      HASURA_GRAPHQL_ENABLE_TELEMETRY: "false"
+      ## uncomment next line to set the admin secret key
+      # HASURA_GRAPHQL_ADMIN_SECRET: myadminsecretkey
