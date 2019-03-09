@@ -1,0 +1,18 @@
+# compose in progress
+version: '3'
+
+services:
+  postgres1:
+    image: postgres:11.2-alpine
+    volumes:
+    - ./data/db:/var/lib/postgresql/data
+    ports:
+    - "5432:5432"
+  redis1:
+    image: redis:5.0-alpine
+    volumes:
+    - ./data/mem:/data
+    - ./config/redis:/config
+    ports:
+    - "6379:6379"
+    command: redis-server /config/redis.conf
