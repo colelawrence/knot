@@ -4,7 +4,6 @@ use actix_web::{error, Error, Result};
 use futures::future::{self, Either, Future};
 
 use super::clients::{google_oauth_client, google_people_client, GoogleAccessToken};
-use crate::db::models::*;
 use crate::db::user_tokens;
 use crate::mem::models::*;
 use crate::mem::user_sessions;

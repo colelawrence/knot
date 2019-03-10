@@ -18,7 +18,7 @@ impl Handler<UpsertUserToken> for AccessExecutor {
             self.db
                 .send(msg)
                 .map_err(error::ErrorInternalServerError)
-                .and_then(|res| res),
+                .flatten(),
         )
     }
 }
@@ -33,7 +33,7 @@ impl Handler<GetTokenForResourceId> for AccessExecutor {
             self.db
                 .send(msg)
                 .map_err(error::ErrorInternalServerError)
-                .and_then(|res| res),
+                .flatten(),
         )
     }
 }
@@ -48,7 +48,7 @@ impl Handler<UpsertUserWithToken> for AccessExecutor {
             self.db
                 .send(msg)
                 .map_err(error::ErrorInternalServerError)
-                .and_then(|res| res),
+                .flatten(),
         )
     }
 }
@@ -63,7 +63,7 @@ impl Handler<UpdateUser> for AccessExecutor {
             self.db
                 .send(msg)
                 .map_err(error::ErrorInternalServerError)
-                .and_then(|res| res),
+                .flatten(),
         )
     }
 }
@@ -78,7 +78,7 @@ impl Handler<GetUserById> for AccessExecutor {
             self.db
                 .send(msg)
                 .map_err(error::ErrorInternalServerError)
-                .and_then(|res| res),
+                .flatten(),
         )
     }
 }

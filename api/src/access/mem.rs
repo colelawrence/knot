@@ -19,7 +19,7 @@ impl Handler<CreateSession> for AccessExecutor {
             self.mem
                 .send(msg)
                 .map_err(error::ErrorInternalServerError)
-                .and_then(|res| res),
+                .flatten(),
         )
     }
 }
@@ -34,7 +34,7 @@ impl Handler<GetSessionByKey> for AccessExecutor {
             self.mem
                 .send(msg)
                 .map_err(error::ErrorInternalServerError)
-                .and_then(|res| res),
+                .flatten(),
         )
     }
 }
@@ -49,7 +49,7 @@ impl Handler<AddTokenToSession> for AccessExecutor {
             self.mem
                 .send(msg)
                 .map_err(error::ErrorInternalServerError)
-                .and_then(|res| res),
+                .flatten(),
         )
     }
 }
@@ -64,7 +64,7 @@ impl Handler<AddUserToSession> for AccessExecutor {
             self.mem
                 .send(msg)
                 .map_err(error::ErrorInternalServerError)
-                .and_then(|res| res),
+                .flatten(),
         )
     }
 }
