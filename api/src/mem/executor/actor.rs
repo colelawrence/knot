@@ -10,7 +10,6 @@ impl Actor for MemExecutor {
     type Context = Context<Self>;
 }
 
-
 impl MemExecutor {
     pub fn conn(&self) -> &Addr<RedisActor> {
         &self.redis

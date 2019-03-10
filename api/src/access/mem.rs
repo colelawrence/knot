@@ -3,8 +3,8 @@ use actix::prelude::*;
 use actix_web::{error, Error};
 use futures::future::Future;
 
-use crate::mem::user_sessions;
 use crate::mem::models::*;
+use crate::mem::user_sessions;
 
 use super::AccessExecutor;
 

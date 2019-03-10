@@ -35,10 +35,8 @@ impl ExchangeResult {
     }
 }
 
-pub fn exchange_code_for_token(code: &str, public_url: &str, client_id: &str, client_secret: &str) -> FutureResponse<ExchangeResult> {
+pub fn exchange_code_for_token(code: &str, redirect_uri: &str, client_id: &str, client_secret: &str) -> FutureResponse<ExchangeResult> {
     // Construct a request against http://localhost:8020/token, the access token endpoint
-    let redirect_uri = format!("{}/login/google/callback", public_url);
-
     let google_token_endpoint = "https://www.googleapis.com/oauth2/v4/token";
 
     // https://developers.google.com/identity/protocols/OAuth2WebServer#offline
@@ -105,6 +103,21 @@ pub fn exchange_code_for_token(code: &str, public_url: &str, client_id: &str, cl
                     ))),
                 }
             }),
+    )
+}
+
+pub fn get_login_url(handoff: &str, redirect_uri: &str, client_id: &str, domain: Option<&str>) -> String {
+    let oauth_endpoint = "https://accounts.google.com/o/oauth2/v2/auth";
+    // let calendar_scope = "https://www.googleapis.com/auth/calendar";
+    // let emails_readonly_scope = "https://www.googleapis.com/auth/user.emails.read";
+    let profile_scope = "https://www.googleapis.com/auth/userinfo.profile";
+    let scopes = format!("{}", profile_scope);
+    let state = handoff;
+    let nonce = crate::mem::util::secure_rand_hex(8);
+
+    format!(
+        "{}?response_type=code&client_id={}&redirect_uri={}&scope={}&access_type=offline&state={}&hd={}&nonce={}&prompt=select_account",
+        oauth_endpoint, client_id, redirect_uri, scopes, state, domain.unwrap_or(""), nonce
     )
 }
 

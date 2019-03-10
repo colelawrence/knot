@@ -1,7 +1,7 @@
 use super::GoogleAccessToken;
 
-use actix_web::{client, HttpMessage, error, FutureResponse};
-use futures::{future,Future};
+use actix_web::{client, error, FutureResponse, HttpMessage};
+use futures::{future, Future};
 
 #[derive(Deserialize, Debug)]
 struct GooglePeopleFieldMetadataSource {

@@ -3,8 +3,8 @@ use actix::prelude::*;
 use actix_web::{error, Error};
 use futures::future::Future;
 
-use crate::db::user_tokens;
 use crate::db::models::*;
+use crate::db::user_tokens;
 
 use super::AccessExecutor;
 
