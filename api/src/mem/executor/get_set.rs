@@ -17,11 +17,12 @@ where
   let named_key = format!("{}#{}", prefix, key);
   Box::new(
     redis
-      .send(Command(resp_array!["GET", key]))
+      .send(Command(resp_array!["GET", named_key]))
       .map_err(Error::from)
       .and_then(|res| match res {
         Ok(val) => match val {
           RespValue::Error(err) => Err(mem_error("get_json error", err)),
+          // I don't think SimpleString is possible based on docs...
           RespValue::SimpleString(s) => Ok(Some(String::from(s))),
           RespValue::BulkString(s) => String::from_utf8(s)
             .map_err(|_| error::ErrorInternalServerError("Redis returned invalid utf8"))
@@ -45,6 +46,7 @@ pub fn set_json<T>(
   prefix: &str,
   key: &str,
   value: &T,
+  expires_in: &std::time::Duration,
 ) -> FutureResponse<()>
 where
   T: serde::ser::Serialize,
@@ -54,21 +56,80 @@ where
     Err(err) => return Box::new(future::err(mem_error("set_json error: serialization", err))),
   };
   let named_key = format!("{}#{}", prefix, key);
+  let expires_in_secs = format!("{}", expires_in.as_secs());
   Box::new(
     redis
-      .send(Command(resp_array!["SET", named_key, value_str]))
+      .send(Command(resp_array!["SET", named_key, value_str, "EX", expires_in_secs]))
       .map_err(Error::from)
       .and_then(|res| match res {
         Ok(val) => match val {
+          RespValue::SimpleString(_) => Ok(()),
           RespValue::Error(err) => Err(mem_error("set_json error", err)),
-          RespValue::SimpleString(s) => Ok(()),
-          RespValue::BulkString(s) => Ok(()),
           other => Err(mem_error(
             "Redis set_json: Unknown response from GET",
             other,
           )),
         },
         Err(err) => Err(mem_error("set_json redis error", err)),
+      }),
+  )
+}
+
+pub fn set_json_if_not_exists<T>(
+  redis: &Addr<RedisActor>,
+  prefix: &str,
+  key: &str,
+  value: &T,
+  expires_in: &std::time::Duration,
+) -> FutureResponse<bool>
+where
+  T: serde::ser::Serialize,
+{
+  let value_str = match serde_json::to_string(value) {
+    Ok(v) => v,
+    Err(err) => return Box::new(future::err(mem_error("set_json error: serialization", err))),
+  };
+  let named_key = format!("{}#{}", prefix, key);
+  let expires_in_secs = format!("{}", expires_in.as_secs());
+  Box::new(
+    redis
+      .send(Command(resp_array!["SET", named_key, value_str, "EX", expires_in_secs]))
+      .map_err(Error::from)
+      .and_then(|res| match res {
+        Ok(val) => match val {
+          RespValue::SimpleString(_) => Ok(true),
+          RespValue::Nil => Ok(false),
+          RespValue::Error(err) => Err(mem_error("set_json error", err)),
+          other => Err(mem_error(
+            "Redis set_json: Unknown response from GET",
+            other,
+          )),
+        },
+        Err(err) => Err(mem_error("set_json redis error", err)),
+      }),
+  )
+}
+
+pub fn delete(
+  redis: &Addr<RedisActor>,
+  prefix: &str,
+  key: &str,
+) -> FutureResponse<()> {
+  let named_key = format!("{}#{}", prefix, key);
+  Box::new(
+    redis
+      .send(Command(resp_array!["DEL", named_key]))
+      .map_err(Error::from)
+      .and_then(|res| match res {
+        Ok(val) => match val {
+          RespValue::Integer(_) => Ok(()),
+          RespValue::Error(err) => Err(mem_error("delete error", err)),
+          other => Err(mem_error(
+            "Redis delete: Unknown response from DEL",
+            other,
+          )),
+        },
+        Err(err) => Err(mem_error("delete redis error", err)),
       }),
   )
 }

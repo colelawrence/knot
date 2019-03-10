@@ -1,12 +1,17 @@
 use actix::prelude::*;
-use chrono::{DateTime, Utc};
-use actix::prelude::*;
 use actix_redis::RedisActor;
-use actix_web::{error, Error, FutureResponse, Result};
+use actix_web::{Error, FutureResponse, Result};
 
 use futures::future::{self, Future};
 
-use super::{mem_error, models, MemExecutor, get_set};
+use super::util;
+
+use super::{get_set, models, MemExecutor};
+
+/// How often should we require a new session?
+const NEW_SESSIONS_EXPIRE_IN_SECS: u64 = 60 * 60;
+const SESSIONS_WITH_TOKENS_EXPIRE_IN_SECS: u64 = 60 * 60 * 24 * 5;
+const SESSIONS_WITH_USER_EXPIRE_IN_SECS: u64 = 60 * 60 * 24 * 365;
 
 fn get_session_by_key(
     conn: &Addr<RedisActor>,
@@ -20,7 +25,45 @@ fn set_session_by_key(
     by_key: &str,
     value: &models::UserSession,
 ) -> FutureResponse<()> {
-    get_set::set_json(conn, "s", by_key, value)
+    use std::time::Duration;
+    let expires_in = if value.user_id.is_some() {
+        Duration::from_secs(SESSIONS_WITH_USER_EXPIRE_IN_SECS)
+    } else if value.user_token_resource_id.is_some() {
+        Duration::from_secs(SESSIONS_WITH_TOKENS_EXPIRE_IN_SECS)
+    } else {
+        Duration::from_secs(NEW_SESSIONS_EXPIRE_IN_SECS)
+    };
+    get_set::set_json(conn, "s", by_key, value, &expires_in)
+}
+
+fn create_session(conn: &Addr<RedisActor>) -> FutureResponse<models::UserSession> {
+    use std::time::Duration;
+    let conn = conn.clone();
+    let new_session = models::UserSession {
+        key: util::secure_rand_hex(16),
+        user_token_resource_id: None,
+        user_id: None,
+    };
+    let expires_in = Duration::from_secs(NEW_SESSIONS_EXPIRE_IN_SECS);
+    Box::new(
+        get_set::set_json_if_not_exists(&conn, "s", &new_session.key, &new_session, &expires_in)
+            .and_then(move |success_tf| {
+                if success_tf {
+                    future::Either::A(future::ok(new_session))
+                } else {
+                    error!(
+                        "create_session: New session key collision on {}",
+                        new_session.key
+                    );
+                    let conn = conn;
+                    future::Either::B(create_session(&conn))
+                }
+            }),
+    )
+}
+
+fn delete_session_by_key(conn: &Addr<RedisActor>, by_key: &str) -> FutureResponse<()> {
+    get_set::delete(conn, "s", by_key)
 }
 
 pub struct CreateSession();
@@ -29,199 +72,101 @@ impl Message for CreateSession {
     type Result = Result<models::UserSession>;
 }
 
-impl Handler<CreateSession> for MemExecutor {
-    type Result = FutureResponse<models::UserSession>;
-
-    fn handle(&mut self, msg: CreateSession, _: &mut Self::Context) -> Self::Result {
-        let conn = self.conn();
-
-        // Get previous user token if it exists
-        let user_tokens_opt: Option<models::UserToken> =
-            get_token_by_resource_id(&conn, &msg.resource_id)?;
-
-        // Retrieve original user
-        let existing_user_opt: Option<models::User> = if let Some(existing_tokens) = user_tokens_opt
-        {
-            // User exists
-            use schema::user_tokens::dsl::*;
-            // Delete previous user token
-            diesel::delete(user_tokens.filter(resource_id.eq(&existing_tokens.resource_id)))
-                .execute(&conn)
-                .map_err(|e| db_error("UpsertUserToken: Error deleting previous user_tokens", e))?;
-
-            // Retrieve previous user if available
-            if let Some(existing_user_id) = existing_tokens.user_id {
-                use schema::users::dsl::*;
-                users
-                    .filter(id.eq(&existing_user_id))
-                    .get_result(&conn)
-                    .optional()
-                    .map_err(|e| {
-                        db_error(
-                            "UpsertUserToken: Error retrieving previous existing user",
-                            e,
-                        )
-                    })?
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        let existing_user_id_opt = existing_user_opt.as_ref().map(|u| u.id.clone());
-
-        let new_user_token = models::NewUserToken {
-            resource_id: &msg.resource_id,
-            access_token: &msg.access_token,
-            refresh_token: &msg.refresh_token,
-            token_expiration: &msg.token_expiration,
-            // ensure if upserted that the new token are associated with the original user
-            user_id: existing_user_id_opt.as_ref(),
-        };
-
-        let inserted_token: models::UserToken = diesel::insert_into(schema::user_tokens::table)
-            .values(&new_user_token)
-            .get_result(&conn)
-            .map_err(|e| db_error("UpsertUserToken: Error inserting user token", e))?;
-
-        Ok((inserted_token, existing_user_opt))
-    }
+pub enum AddTokenToSessionResult {
+    SessionNotFound,
+    Success(models::UserSession),
 }
 
-pub struct GetTokenForResourceId {
-    resource_id: String,
+pub struct AddTokenToSession {
+    pub session_key: String,
+    pub resource_id: String,
 }
 
-impl Message for GetTokenForResourceId {
-    type Result = Result<Option<models::UserToken>>;
+impl Message for AddTokenToSession {
+    type Result = Result<AddTokenToSessionResult>;
 }
 
-impl Handler<GetTokenForResourceId> for MemExecutor {
-    type Result = Result<Option<models::UserToken>>;
-
-    fn handle(&mut self, msg: GetTokenForResourceId, _: &mut Self::Context) -> Self::Result {
-        let conn = self.conn();
-        get_token_by_resource_id(&conn, &msg.resource_id)
-    }
+pub enum AddUserToSessionResult {
+    SessionNotFound,
+    Success(models::UserSession),
 }
 
-pub struct UpsertUserWithToken {
-    pub display_name: String,
-    pub full_name: Option<String>,
-    pub photo_url: Option<String>,
-    pub is_person: bool,
-    pub token: models::UserToken,
-}
-
-impl Message for UpsertUserWithToken {
-    type Result = Result<(models::UserToken, models::User)>;
-}
-
-impl Handler<UpsertUserWithToken> for MemExecutor {
-    type Result = Result<(models::UserToken, models::User)>;
-
-    fn handle(&mut self, msg: UpsertUserWithToken, _: &mut Self::Context) -> Self::Result {
-        let conn = self.conn();
-        // 1. Get Token
-        let mut token: models::UserToken = {
-            use schema::user_tokens::dsl::*;
-            user_tokens
-                .filter(resource_id.eq(msg.token.resource_id))
-                .get_result(&conn)
-                .map_err(|e| db_error("UpsertUserWithToken: Error retrieving user token", e))?
-        };
-        // 2. Check existing user
-        let user_exists_opt: Option<models::User> = if let Some(ref user_id) = token.user_id {
-            get_user_by_id(&conn, &user_id)?
-        } else {
-            None
-        };
-
-        let user: models::User = if let Some(mut user_exists) = user_exists_opt {
-            // 2.Exists: Update user with info
-            use schema::users;
-            user_exists.full_name = msg.full_name.or(user_exists.full_name);
-            user_exists.photo_url = msg.photo_url.or(user_exists.photo_url);
-            diesel::update(users::table)
-                .set(&user_exists)
-                .get_result(&conn)
-                .map_err(|e| db_error("UpsertUserWithToken: Error updating existing user", e))?
-        } else {
-            // 2.DNE.1: Create user with info
-            use schema::users;
-            let new_user = models::NewUser {
-                display_name: &msg.display_name,
-                full_name: msg.full_name.as_ref(),
-                photo_url: msg.photo_url.as_ref(),
-                is_person: msg.is_person,
-            };
-
-            diesel::insert_into(users::table)
-                .values(new_user)
-                .get_result(&conn)
-                .map_err(|e| db_error("UpsertUserWithToken: Error inserting new user", e))?
-        };
-
-        // 3. Update token to point at user_id
-        let updated_token: models::UserToken = {
-            token.user_id = Some(user.id.clone());
-
-            use schema::user_tokens;
-            diesel::update(user_tokens::table)
-                .set(&token)
-                .get_result(&conn)
-                .map_err(|e| db_error("UpsertUserWithToken: Error updating user token", e))?
-        };
-
-        Ok((updated_token, user))
-    }
-}
-
-pub struct UpdateUser {
+pub struct AddUserToSession {
+    pub session_key: String,
     pub user_id: String,
-    pub display_name: String,
-    pub full_name: Option<String>,
-    pub photo_url: Option<String>,
 }
 
-impl Message for UpdateUser {
-    type Result = Result<models::User>;
+impl Message for AddUserToSession {
+    type Result = Result<AddUserToSessionResult>;
 }
 
-impl Handler<UpdateUser> for MemExecutor {
-    type Result = Result<models::User>;
+pub struct GetSessionByKey(pub String);
 
-    fn handle(&mut self, msg: UpdateUser, _: &mut Self::Context) -> Self::Result {
+impl Message for GetSessionByKey {
+    type Result = Result<Option<models::UserSession>>;
+}
+
+impl Handler<CreateSession> for MemExecutor {
+    type Result = ResponseFuture<models::UserSession, Error>;
+
+    fn handle(&mut self, _: CreateSession, _: &mut Self::Context) -> Self::Result {
         let conn = self.conn();
-
-        // 2.Exists: Update user with info
-        use schema::users::dsl::*;
-        diesel::update(schema::users::table)
-            .filter(id.eq(msg.user_id))
-            .set((
-                display_name.eq(msg.display_name),
-                full_name.eq(msg.full_name),
-                photo_url.eq(msg.photo_url),
-            ))
-            .get_result(&conn)
-            .map_err(|e| db_error("UpdateUser: Error updating existing user", e))
+        create_session(&conn)
     }
 }
 
-pub struct GetUserById {
-    user_id: String,
+impl Handler<AddTokenToSession> for MemExecutor {
+    type Result = ResponseFuture<AddTokenToSessionResult, Error>;
+
+    fn handle(&mut self, msg: AddTokenToSession, _: &mut Self::Context) -> Self::Result {
+        let conn = self.conn().clone();
+        Box::new(
+            get_session_by_key(&conn, &msg.session_key).and_then(move |session_opt| {
+                match session_opt {
+                    Some(mut session) => future::Either::A(
+                        if session.user_token_resource_id.as_ref() == Some(&msg.resource_id) {
+                            future::Either::A(future::ok(AddTokenToSessionResult::Success(session)))
+                        } else {
+                            session.user_token_resource_id = Some(msg.resource_id);
+                            future::Either::B(
+                                set_session_by_key(&conn, &session.key, &session)
+                                    .map(|_| AddTokenToSessionResult::Success(session)),
+                            )
+                        },
+                    ),
+                    None => future::Either::B(future::ok(AddTokenToSessionResult::SessionNotFound)),
+                }
+            }),
+        )
+    }
 }
 
-impl Message for GetUserById {
-    type Result = Result<Option<models::User>>;
+impl Handler<AddUserToSession> for MemExecutor {
+    type Result = ResponseFuture<AddUserToSessionResult, Error>;
+
+    fn handle(&mut self, msg: AddUserToSession, _: &mut Self::Context) -> Self::Result {
+        let conn = self.conn().clone();
+        Box::new(
+            get_session_by_key(&conn, &msg.session_key).and_then(move |session_opt| {
+                match session_opt {
+                    Some(mut session) => {
+                        session.user_id = Some(msg.user_id);
+                        future::Either::A(
+                            set_session_by_key(&conn, &session.key, &session)
+                                .map(|_| AddUserToSessionResult::Success(session)),
+                        )
+                    }
+                    None => future::Either::B(future::ok(AddUserToSessionResult::SessionNotFound)),
+                }
+            }),
+        )
+    }
 }
 
-impl Handler<GetUserById> for MemExecutor {
-    type Result = Result<Option<models::User>>;
+impl Handler<GetSessionByKey> for MemExecutor {
+    type Result = ResponseFuture<Option<models::UserSession>, Error>;
 
-    fn handle(&mut self, msg: GetUserById, _: &mut Self::Context) -> Self::Result {
-        let conn = self.conn();
-        get_user_by_id(&conn, &msg.user_id)
+    fn handle(&mut self, msg: GetSessionByKey, _: &mut Self::Context) -> Self::Result {
+        get_session_by_key(self.conn(), &msg.0)
     }
 }

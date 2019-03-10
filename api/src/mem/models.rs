@@ -1,5 +1,3 @@
-use chrono::{DateTime, Utc};
-
 #[derive(Serialize, Deserialize)]
 pub struct UserSession {
     /// User's state key for associating login with session

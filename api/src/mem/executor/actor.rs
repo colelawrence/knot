@@ -1,10 +1,18 @@
 use actix::prelude::*;
 use actix_redis::RedisActor;
 
-
-/// This is memory executor actor. We are going to run 3 of them in parallel.
-pub struct MemExecutor(pub Addr<RedisActor>);
+/// This is memory executor actor
+pub struct MemExecutor {
+    pub redis: Addr<RedisActor>,
+}
 
 impl Actor for MemExecutor {
-    type Context = SyncContext<Self>;
+    type Context = Context<Self>;
+}
+
+
+impl MemExecutor {
+    pub fn conn(&self) -> &Addr<RedisActor> {
+        &self.redis
+    }
 }

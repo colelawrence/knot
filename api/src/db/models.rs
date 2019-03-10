@@ -1,15 +1,5 @@
 use chrono::{DateTime, Utc};
 
-#[derive(Queryable, Serialize, Deserialize)]
-pub struct UserSession {
-    pub id: i32,
-    /// User's state key for associating login with session
-    pub key: String,
-    pub created_at: DateTime<Utc>,
-    pub user_token_resource_id: Option<String>,
-    pub user_id: Option<String>,
-}
-
 use super::schema::user_tokens;
 
 #[derive(Insertable)]

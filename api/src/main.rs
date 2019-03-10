@@ -8,8 +8,8 @@ extern crate redis_async;
 extern crate serde_derive;
 
 mod access;
-mod db;
-mod mem;
+pub mod db;
+pub mod mem;
 
 fn main() {
     println!("Hello, world!");

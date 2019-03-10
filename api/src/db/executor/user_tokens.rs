@@ -30,10 +30,10 @@ fn get_user_by_id(conn: &PgConnection, by_id: &str) -> Result<Option<models::Use
 }
 
 pub struct UpsertUserToken {
-    resource_id: String,
-    access_token: String,
-    refresh_token: String,
-    token_expiration: DateTime<Utc>,
+    pub resource_id: String,
+    pub access_token: String,
+    pub refresh_token: String,
+    pub token_expiration: DateTime<Utc>,
 }
 
 impl Message for UpsertUserToken {
@@ -101,7 +101,7 @@ impl Handler<UpsertUserToken> for DbExecutor {
 }
 
 pub struct GetTokenForResourceId {
-    resource_id: String,
+    pub resource_id: String,
 }
 
 impl Message for GetTokenForResourceId {
@@ -221,7 +221,7 @@ impl Handler<UpdateUser> for DbExecutor {
 }
 
 pub struct GetUserById {
-    user_id: String,
+    pub user_id: String,
 }
 
 impl Message for GetUserById {

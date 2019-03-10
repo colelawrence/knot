@@ -12,7 +12,7 @@ services:
     image: redis:5.0-alpine
     volumes:
     - ./data/mem:/data
-    - ./config/redis:/config
+    - ../config/redis:/config
     ports:
     - "6379:6379"
     command: redis-server /config/redis.conf
