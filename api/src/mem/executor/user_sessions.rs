@@ -200,6 +200,12 @@ impl Message for GetSessionByKey {
     type Result = Result<Option<models::UserSession>>;
 }
 
+pub struct DeleteSessionByKey(pub String);
+
+impl Message for DeleteSessionByKey {
+    type Result = Result<()>;
+}
+
 impl Handler<CreateSession> for MemExecutor {
     type Result = ResponseFuture<models::UserSession, Error>;
 
@@ -262,6 +268,14 @@ impl Handler<GetSessionByKey> for MemExecutor {
 
     fn handle(&mut self, msg: GetSessionByKey, _: &mut Self::Context) -> Self::Result {
         get_session_by_key(self.conn(), &msg.0)
+    }
+}
+
+impl Handler<DeleteSessionByKey> for MemExecutor {
+    type Result = ResponseFuture<(), Error>;
+
+    fn handle(&mut self, msg: DeleteSessionByKey, _: &mut Self::Context) -> Self::Result {
+        delete_session_by_key(self.conn(), &msg.0)
     }
 }
 

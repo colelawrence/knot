@@ -1,4 +1,4 @@
-///! Google Oauth2 commands for AccessExecutor
+//! Google Oauth2 commands for AccessExecutor
 use actix::prelude::*;
 use actix_web::{error, Error, Result};
 use futures::future::{self, Either, Future};

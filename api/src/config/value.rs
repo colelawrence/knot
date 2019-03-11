@@ -72,6 +72,12 @@ impl Deref for Value<String> {
     }
 }
 
+impl Into<String> for &Value<String> {
+    fn into(self) -> String {
+        self.value.clone()
+    }
+}
+
 impl Deref for Value<u16> {
     type Target = u16;
     fn deref(&self) -> &u16 {

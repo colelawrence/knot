@@ -1,0 +1,9 @@
+{
+  "files.watcherExclude": {
+    "**/objects/**": true,
+    "**/target/**": true
+  },
+  "emmet.includeLanguages": {
+    "jinja-html": "html"
+  }
+}

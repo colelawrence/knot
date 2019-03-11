@@ -39,6 +39,21 @@ impl Handler<GetSessionByKey> for AccessExecutor {
     }
 }
 
+pub use user_sessions::DeleteSessionByKey;
+
+impl Handler<DeleteSessionByKey> for AccessExecutor {
+    type Result = ResponseFuture<(), Error>;
+
+    fn handle(&mut self, msg: DeleteSessionByKey, _: &mut Self::Context) -> Self::Result {
+        Box::new(
+            self.mem
+                .send(msg)
+                .map_err(error::ErrorInternalServerError)
+                .flatten(),
+        )
+    }
+}
+
 pub use user_sessions::{AddTokenToSession, AddTokenToSessionResult};
 
 impl Handler<AddTokenToSession> for AccessExecutor {

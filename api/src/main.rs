@@ -14,11 +14,8 @@ mod logging;
 pub mod access;
 mod db;
 mod mem;
-// mod server;
+mod server;
 
-
-mod state;
-pub use state::State;
 pub mod config;
 pub use config::Config;
 
@@ -92,7 +89,7 @@ fn main() {
             // actix::System::new("knot").run();
             let start_args = args.subcommand_matches("start").unwrap();
             config = config.apply_arguments(start_args).expect("Command line arguments parsed correctly");
-            // server::start::start(config);
+            server::start::start(config);
         }
         Some("show-config") => {
             println!("{}", config);

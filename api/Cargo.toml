@@ -20,10 +20,13 @@ log = "0.4.6"
 
 actix = "0.7"
 actix-web = { version = "0.7", features = ["default", "ssl"] }
+actix-web-httpauth = "0.1.0"
 actix-redis = "0.5"
+askama = "0.8"
 diesel = { version = "1.4.1", features = ["postgres", "r2d2", "chrono"] }
 diesel-derive-enum = { version = "0.4.4", features = ["postgres"] }
 diesel-derive-newtype = "0.1.2"
+listenfd = "0.3"
 redis-async = "^0.4"
 ring = "0.13.5"
 serde = "^1.0"

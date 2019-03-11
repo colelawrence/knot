@@ -1,5 +1,7 @@
 use actix::prelude::*;
 
+use std::sync::Arc;
+
 use crate::db::DbExecutor;
 use crate::mem::MemExecutor;
 
@@ -7,7 +9,7 @@ use crate::mem::MemExecutor;
 pub struct AccessExecutor {
     pub mem: Addr<MemExecutor>,
     pub db: Addr<DbExecutor>,
-    pub settings: AccessSettings,
+    pub settings: Arc<AccessSettings>,
 }
 
 pub struct AccessSettings {
