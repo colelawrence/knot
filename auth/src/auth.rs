@@ -10,7 +10,6 @@ use crate::prelude::*;
 use actix_web::http::header::AUTHORIZATION;
 const BEARER_TOKEN_PREFIX: &str = "Bearer ";
 
-/// TODO: Encode and decode user token values so the same "Token " type can be used for sending and receiving
 #[derive(Debug, Clone)]
 pub struct UserAccessKey(pub String);
 #[derive(Debug, Clone)]
