@@ -7,7 +7,7 @@ use futures::{
     Future,
 };
 
-use crate::auth::{LoginAccessToken, UserAccessToken};
+use crate::auth::{LoginAccessKey, UserAccessKey};
 
 // 120 minutes
 const SIGNUP_SESSION_EXPIRATION: std::time::Duration = std::time::Duration::from_secs(60 * 120);
@@ -18,20 +18,13 @@ pub struct HandoffState(pub String);
 
 pub use models::IAm;
 
-#[derive(Deserialize, Serialize)]
-#[serde(tag = "type")]
-pub enum CredentialsJson {
-    Login { access_token: LoginAccessToken },
-    User { access_token: UserAccessToken },
-}
-
 /// Create a state which is associated with this signup session
 pub fn create_login_handoff(
     mem: &MemExecutor,
-    login_access_token: &LoginAccessToken,
+    login_access_key: &LoginAccessKey,
 ) -> AppFuture<HandoffState> {
     let mem: MemExecutor = mem.clone();
-    Box::new(get_login_session(&mem, login_access_token).and_then(
+    Box::new(get_login_session(&mem, login_access_key).and_then(
         move |auth: models::LoginSession| {
             let signup_session_key = auth.key.clone();
             create_login_handoff_r(mem.clone(), signup_session_key, 5).and_then(
@@ -47,10 +40,10 @@ pub fn create_login_handoff(
 
 fn create_login_handoff_r(
     mem: MemExecutor,
-    session_key: LoginAccessToken,
+    session_key: String,
     attempts_left: usize,
 ) -> AppFuture<models::StateHandoff> {
-    let handoff = models::StateHandoff::signup(&secure_rand_hex(12), &session_key);
+    let handoff = models::StateHandoff::login(&secure_rand_hex(12), &session_key);
     Box::new(
         mem.set_json_if_not_exists(&handoff, &HANDOFF_EXPIRATION)
             .from_err()
@@ -81,7 +74,7 @@ pub fn iam_callback(mem: &MemExecutor, state: String, i_am: models::IAm) -> AppF
                 )))
             })
             .and_then(move |handoff: models::StateHandoff| {
-                get_login_session(&mem, &handoff.session_key).and_then(
+                get_login_session(&mem, &LoginAccessKey(handoff.session_key)).and_then(
                     move |mut login_session: models::LoginSession| {
                         login_session.i_am = Some(i_am);
                         mem.set_json(&login_session, &SIGNUP_SESSION_EXPIRATION)
@@ -91,13 +84,13 @@ pub fn iam_callback(mem: &MemExecutor, state: String, i_am: models::IAm) -> AppF
     )
 }
 
-pub fn create_login_access_token(mem: &MemExecutor) -> AppFuture<LoginAccessToken> {
-    Box::new(create_login_access_token_r(mem.clone(), 5).map(
-        |signup_session: models::LoginSession| LoginAccessToken(signup_session.key.0.to_string()),
+pub fn create_login_access_key(mem: &MemExecutor) -> AppFuture<LoginAccessKey> {
+    Box::new(create_login_access_key_r(mem.clone(), 5).map(
+        |signup_session: models::LoginSession| LoginAccessKey(signup_session.key.to_string()),
     ))
 }
 
-fn create_login_access_token_r(
+fn create_login_access_key_r(
     mem: MemExecutor,
     attempts_left: usize,
 ) -> AppFuture<models::LoginSession> {
@@ -110,12 +103,12 @@ fn create_login_access_token_r(
                     Either::A(future::ok(signup_session))
                 } else if attempts_left <= 0 {
                     error!(
-                        "create_login_access_token_r: Ran out of attempts to create a new signup_session! Last tried: {:?}",
+                        "create_login_access_key_r: Ran out of attempts to create a new signup_session! Last tried: {:?}",
                         signup_session.key,
                     );
                     Either::B(Either::A(future::err(Error::InternalServerError)))
                 } else {
-                    Either::B(Either::B(create_login_access_token_r(mem, attempts_left - 1)))
+                    Either::B(Either::B(create_login_access_key_r(mem, attempts_left - 1)))
                 }
             }),
     )
@@ -123,10 +116,10 @@ fn create_login_access_token_r(
 
 fn get_login_session(
     mem: &MemExecutor,
-    login_access_token: &LoginAccessToken,
+    login_access_key: &LoginAccessKey,
 ) -> AppFuture<models::LoginSession> {
     Box::new(
-        mem.get_json(&login_access_token.0)
+        mem.get_json(&login_access_key.0)
             .and_then(|signup_session_opt| {
                 signup_session_opt.ok_or(Error::BadRequest(String::from(
                     "Login session no longer exists.",
@@ -137,14 +130,14 @@ fn get_login_session(
 
 pub fn get_login_session_opt(
     mem: &MemExecutor,
-    login_access_token: &LoginAccessToken,
+    login_access_key: &LoginAccessKey,
 ) -> impl Future<Item = Option<models::LoginSession>, Error = Error> {
-    mem.get_json(&login_access_token.0)
+    mem.get_json(&login_access_key.0)
 }
 
 pub fn get_user_session_opt(
     mem: &MemExecutor,
-    user_access_token: &UserAccessToken,
+    user_access_key: &UserAccessKey,
 ) -> impl Future<Item = Option<models::UserSession>, Error = Error> {
-    mem.get_json(&user_access_token.0)
+    mem.get_json(&user_access_key.0)
 }

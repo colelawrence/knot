@@ -17,9 +17,11 @@ pub fn create_login_session(
     req: HttpRequest<AppState>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     let mem: MemExecutor = req.state().mem.clone();
-    sessions::create_login_access_token(&mem).map(|login_access_token| {
+    let pepper = req.state().config.pepper_0.clone();
+    sessions::create_login_access_key(&mem).map(move |login_access_key| {
+        let access_key = auth::AccessKey::new_login_key(login_access_key);
         HttpResponse::Ok().json(json!({
-            "access_token": login_access_token,
+            "access_token": auth::AccessToken::encrypt(access_key, &pepper),
         }))
     })
 }
@@ -62,7 +64,7 @@ pub fn create_google_login_url(
     let mem: MemExecutor = req.state().mem.clone();
 
     auth::authenticate_login(&req).and_then(move |login: auth::AuthLogin| {
-        sessions::create_login_handoff(&mem, &login.access_token)
+        sessions::create_login_handoff(&mem, &login.access_key)
             .map(move |handoff_state: sessions::HandoffState| {
                 google_oauth_client::get_login_url(
                     &handoff_state.0,

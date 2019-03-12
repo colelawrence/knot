@@ -1,4 +1,5 @@
 use ring::rand::{SecureRandom, SystemRandom};
+use ring::{digest, pbkdf2};
 
 // This string will be about twice as long as byte_len
 pub fn secure_rand_hex(byte_len: usize) -> String {
@@ -20,4 +21,15 @@ pub fn hex(bytes: &[u8]) -> String {
         write!(&mut s, "{:02x}", byte).expect("Unable to write");
     }
     s
+}
+
+use short_crypt::ShortCrypt;
+
+pub fn enc(src: &[u8], key: &str) -> String {
+    // I'm sorry
+    ShortCrypt::new(key).encrypt_to_url_component(src)
+}
+
+pub fn dec(enc: &str, key: &str) -> Result<Vec<u8>, &'static str> {
+    ShortCrypt::new(key).decrypt_url_component(enc)
 }

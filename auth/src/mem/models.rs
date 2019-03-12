@@ -1,5 +1,4 @@
 use super::MemModel;
-use crate::auth::{LoginAccessToken, UserAccessToken};
 
 #[derive(Serialize, Deserialize)]
 pub struct MemUser {
@@ -17,7 +16,7 @@ pub struct MemUser {
 pub struct UserSession {
     /// User's state key for associating login with session
     #[serde(rename = "k")]
-    pub key: UserAccessToken,
+    pub key: String,
     #[serde(rename = "u")]
     pub user: MemUser,
 }
@@ -27,7 +26,7 @@ impl MemModel for UserSession {
         "us"
     }
     fn table_key(&self) -> &str {
-        &self.key.0
+        &self.key
     }
 }
 
@@ -45,7 +44,7 @@ pub struct IAm {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct LoginSession {
     #[serde(rename = "k")]
-    pub key: LoginAccessToken,
+    pub key: String,
     #[serde(rename = "h", skip_serializing_if = "Option::is_none")]
     pub state: Option<String>,
     #[serde(rename = "a", skip_serializing_if = "Option::is_none")]
@@ -55,7 +54,7 @@ pub struct LoginSession {
 impl LoginSession {
     pub fn from_key(key: String) -> Self {
         LoginSession {
-            key: LoginAccessToken(key),
+            key: key,
             state: None,
             i_am: None,
         }
@@ -67,7 +66,7 @@ impl MemModel for LoginSession {
         "ls"
     }
     fn table_key(&self) -> &str {
-        &self.key.0
+        &self.key
     }
 }
 
@@ -77,14 +76,14 @@ pub struct StateHandoff {
     #[serde(rename = "k")]
     pub key: String,
     #[serde(rename = "sk")]
-    pub session_key: LoginAccessToken,
+    pub session_key: String,
 }
 
 impl StateHandoff {
-    pub fn signup(key: &str, signup_session: &LoginAccessToken) -> Self {
+    pub fn login(key: &str, login_access_key: &str) -> Self {
         StateHandoff {
             key: key.to_string(),
-            session_key: signup_session.clone(),
+            session_key: login_access_key.to_string(),
         }
     }
 }
