@@ -2,7 +2,11 @@ use crate::db::{new_pool, DbExecutor};
 use crate::mem::MemExecutor;
 use actix::prelude::{Addr, SyncArbiter};
 use actix_redis::RedisActor;
-use actix_web::{http::Method, middleware::Logger, App, HttpRequest};
+use actix_web::{
+    http::Method,
+    middleware::{cors::Cors, Logger},
+    App, HttpRequest,
+};
 use std::sync::Arc;
 
 mod google;
@@ -35,6 +39,16 @@ pub fn create(config: Config) -> App<AppState> {
     let redis_addr = RedisActor::start(config.redis_url.clone());
     let mem_executor = MemExecutor::new(redis_addr);
 
+    let cors = {
+        let mut cors_builder = Cors::build();
+        if let Some(value) = config.http_allowed_origins.not_empty() {
+            for origin in value.split(' ') {
+                cors_builder.allowed_origin(origin);
+            }
+        }
+        cors_builder.finish()
+    };
+
     let state = AppState {
         db: database_address.clone(),
         mem: mem_executor,
@@ -43,6 +57,7 @@ pub fn create(config: Config) -> App<AppState> {
 
     App::with_state(state)
         .middleware(Logger::default())
+        .middleware(cors)
         .resource("/", |r| r.f(index))
         .scope("/auth", |scope| {
             scope.nested("/v0", |scope| {
