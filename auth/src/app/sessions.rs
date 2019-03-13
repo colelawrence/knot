@@ -26,59 +26,47 @@ pub fn create_login_session(
     })
 }
 
-pub fn login_session_i_am(
-    req: HttpRequest<AppState>,
-) -> impl Future<Item = HttpResponse, Error = Error> {
-    auth::authenticate_login(&req).map(move |login: auth::AuthLogin| {
-        HttpResponse::Ok().json(json!({
-            "i_am": login.i_am,
-        }))
-    })
+pub fn login_session_i_am(login: auth::AuthLogin) -> HttpResponse {
+    HttpResponse::Ok().json(json!({
+        "i_am": login.i_am,
+    }))
 }
 
 pub fn register_login_session(
-    req: HttpRequest<AppState>,
+    login: auth::AuthLogin,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
-    auth::authenticate_login(&req).map(move |login: auth::AuthLogin| {
-        HttpResponse::Ok().json(json!({
-            "i_am": login.i_am,
-        }))
-    })
+    future::ok(HttpResponse::Ok().json(json!({
+        "i_am": login.i_am,
+    })))
 }
 
-pub fn user_session_i_am(
-    req: HttpRequest<AppState>,
-) -> impl Future<Item = HttpResponse, Error = Error> {
-    auth::authenticate_user(&req).map(move |user: auth::AuthUser| {
-        HttpResponse::Ok().json(json!({
-            "user_id": &user.user.user_id,
-            "user": user.user,
-        }))
-    })
+pub fn user_session_i_am(user: auth::AuthUser) -> HttpResponse {
+    HttpResponse::Ok().json(json!({
+        "user_id": &user.user.user_id,
+        "user": user.user,
+    }))
 }
 
 pub fn create_google_login_url(
-    req: HttpRequest<AppState>,
+    (login, req): (auth::AuthLogin, HttpRequest<AppState>),
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     let settings: Arc<Config> = req.state().config.clone();
     let mem: MemExecutor = req.state().mem.clone();
 
-    auth::authenticate_login(&req).and_then(move |login: auth::AuthLogin| {
-        sessions::create_login_handoff(&mem, &login.access_key)
-            .map(move |handoff_state: sessions::HandoffState| {
-                google_oauth_client::get_login_url(
-                    &handoff_state.0,
-                    &google_redirect_uri(&settings.http_public_url),
-                    &settings.google_oauth_client_id,
-                    None,
-                )
-            })
-            .map(|login_url| {
-                HttpResponse::Ok().json(json!({
-                    "url": login_url,
-                }))
-            })
-    })
+    sessions::create_login_handoff(&mem, &login.access_key)
+        .map(move |handoff_state: sessions::HandoffState| {
+            google_oauth_client::get_login_url(
+                &handoff_state.0,
+                &google_redirect_uri(&settings.http_public_url),
+                &settings.google_oauth_client_id,
+                None,
+            )
+        })
+        .map(|login_url| {
+            HttpResponse::Ok().json(json!({
+                "url": login_url,
+            }))
+        })
 }
 
 #[derive(Debug, Deserialize)]

@@ -55,7 +55,7 @@ pub fn create(config: Config) -> App<AppState> {
                         r.method(Method::POST)
                             .with_async(sessions::create_login_session);
                         r.method(Method::GET)
-                            .with_async(sessions::login_session_i_am)
+                            .with(sessions::login_session_i_am)
                     })
                     .resource("login/session/register", |r| {
                         r.method(Method::POST)
@@ -63,7 +63,7 @@ pub fn create(config: Config) -> App<AppState> {
                     })
                     .resource("me", |r| {
                         r.method(Method::GET)
-                            .with_async(sessions::user_session_i_am)
+                            .with(sessions::user_session_i_am)
                     })
                     .resource("google/login_url", |r| {
                         r.method(Method::POST)

@@ -25,6 +25,8 @@ enum AccessKeyInner {
     User(UserAccessKey),
 }
 
+/// The Access token is an opaque value which can be decrypted to find the user's session key
+/// The key is then used to query against the memory database.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(transparent)]
 pub struct AccessToken(String);
@@ -133,7 +135,33 @@ pub struct AuthUser {
     pub user: User,
 }
 
-pub fn authenticate_login(
+impl FromRequest<AppState> for AuthLogin {
+    type Config = ();
+    type Result = Box<Future<Item = AuthLogin, Error = actix_web::Error>>;
+
+    #[inline]
+    fn from_request(req: &HttpRequest<AppState>, _cfg: &Self::Config) -> Self::Result {
+        Box::new(
+            authenticate_login(&req)
+                .map_err(|_| actix_web::error::ErrorUnauthorized("Invalid login session token")),
+        )
+    }
+}
+
+impl FromRequest<AppState> for AuthUser {
+    type Config = ();
+    type Result = Box<Future<Item = AuthUser, Error = actix_web::Error>>;
+
+    #[inline]
+    fn from_request(req: &HttpRequest<AppState>, _cfg: &Self::Config) -> Self::Result {
+        Box::new(
+            authenticate_user(&req)
+                .map_err(|_| actix_web::error::ErrorUnauthorized("Invalid user session token")),
+        )
+    }
+}
+
+fn authenticate_login(
     req: &HttpRequest<AppState>,
 ) -> impl Future<Item = AuthLogin, Error = Error> {
     let mem: MemExecutor = req.state().mem.clone();
@@ -166,7 +194,7 @@ pub fn authenticate_login(
         })
 }
 
-pub fn authenticate_user(
+fn authenticate_user(
     req: &HttpRequest<AppState>,
 ) -> impl Future<Item = AuthUser, Error = Error> {
     let mem: MemExecutor = req.state().mem.clone();
