@@ -73,7 +73,6 @@ pub struct IAm {
 }
 
 pub fn who_am_i(access_token: &GoogleAccessToken) -> FutureResponse<IAm> {
-    info!("who am i async");
     // https://people.googleapis.com/v1/{resourceName=people/*}
     let person_fields = "names,emailAddresses,photos";
     let url = format!(
@@ -107,7 +106,7 @@ pub fn who_am_i(access_token: &GoogleAccessToken) -> FutureResponse<IAm> {
                 }
             })
             .and_then(move |data: GooglePeopleResource| {
-                info!("Successfully retrieved IAm => {:?}", data);
+                trace!("Successfully retrieved IAm => {:?}", data);
 
                 let name0 = data.names.and_then(|mut names| names.pop());
                 let email0: String = data

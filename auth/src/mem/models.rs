@@ -1,6 +1,6 @@
 use super::MemModel;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct MemUser {
     #[serde(rename = "i")]
     user_id: String,
@@ -19,6 +19,15 @@ pub struct UserSession {
     pub key: String,
     #[serde(rename = "u")]
     pub user: MemUser,
+}
+
+impl UserSession {
+    pub fn from_key_and_user(key: String, mem_user: MemUser) -> Self {
+        UserSession {
+            key: key,
+            user: mem_user,
+        }
+    }
 }
 
 impl MemModel for UserSession {
@@ -45,18 +54,18 @@ pub struct IAm {
 pub struct LoginSession {
     #[serde(rename = "k")]
     pub key: String,
-    #[serde(rename = "h", skip_serializing_if = "Option::is_none")]
-    pub state: Option<String>,
     #[serde(rename = "a", skip_serializing_if = "Option::is_none")]
     pub i_am: Option<IAm>,
+    #[serde(rename = "u", skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
 }
 
 impl LoginSession {
     pub fn from_key(key: String) -> Self {
         LoginSession {
             key: key,
-            state: None,
             i_am: None,
+            user_id: None,
         }
     }
 }
@@ -104,6 +113,19 @@ impl Into<crate::auth::User> for MemUser {
             display_name: self.display_name,
             full_name: self.full_name,
             photo_url: self.photo_url,
+        }
+    }
+}
+
+use crate::db;
+
+impl From<db::models::User> for MemUser {
+    fn from(user: db::models::User) -> Self {
+        MemUser {
+            user_id: user.id,
+            display_name: user.display_name,
+            full_name: user.full_name,
+            photo_url: user.photo_url,
         }
     }
 }

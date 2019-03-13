@@ -69,7 +69,6 @@ pub fn exchange_code_for_token(
                 error::ErrorFailedDependency("Code exchange send error")
             })
             .and_then(|resp: actix_web::client::ClientResponse| {
-                info!("exchange_code_for_token client response json {:?}", resp);
                 if resp.status().is_success() {
                     future::Either::A(resp.json::<GoogleTokenAuthCodeJson>().map_err(|e| {
                         warn!("Failed to parse GoogleTokenAuthCodeJson {:?}", e);
@@ -83,7 +82,7 @@ pub fn exchange_code_for_token(
                 }
             })
             .and_then(move |token_map: GoogleTokenAuthCodeJson| {
-                info!("exchange_code_for_token token_map matching");
+                debug!("exchange_code_for_token token_map matching");
                 match (token_map.access_token, token_map.expires_in) {
                     (Some(access), Some(expires_in)) => {
                         let expires_at = Utc::now() + Duration::seconds(expires_in);
@@ -205,7 +204,7 @@ pub fn revoke_token(token: &GoogleAccessToken) -> FutureResponse<()> {
                 error::ErrorInternalServerError("Error revoking token")
             })
             .map(|_| {
-                info!("Successfully revoked user's tokens");
+                trace!("Successfully revoked user's tokens");
                 ()
             }),
     )

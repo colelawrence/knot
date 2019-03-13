@@ -61,6 +61,10 @@ pub fn create(config: Config) -> App<AppState> {
                         r.method(Method::POST)
                             .with_async(sessions::register_login_session)
                     })
+                    .resource("login/session/user", |r| {
+                        r.method(Method::POST)
+                            .with_async(sessions::create_user_session)
+                    })
                     .resource("me", |r| {
                         r.method(Method::GET)
                             .with(sessions::user_session_i_am)

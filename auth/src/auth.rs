@@ -85,11 +85,11 @@ impl AccessToken {
 }
 
 impl AccessKey {
-    pub fn new_user_key(key: &str) -> Self {
+    pub fn new_user_key(key: UserAccessKey) -> Self {
         let new_salt = hex(&secure_rand(SALT_LENGTH));
         AccessKey {
             salt: new_salt,
-            key: AccessKeyInner::User(UserAccessKey(key.to_string())),
+            key: AccessKeyInner::User(key),
         }
     }
 
@@ -177,7 +177,7 @@ fn authenticate_login(
         .and_then(move |access_key: AccessKey| {
             access_key
                 .login_key()
-                .map(std::clone::Clone::clone)
+                .cloned()
                 .ok_or(Error::BadRequest("Not a login access token".to_string()))
         })
         .and_then(move |login_access_key: LoginAccessKey| {
@@ -189,7 +189,7 @@ fn authenticate_login(
                 .map(|login_session: models::LoginSession| AuthLogin {
                     access_key: LoginAccessKey(login_session.key),
                     i_am: login_session.i_am,
-                    user_id: None,
+                    user_id: login_session.user_id,
                 })
         })
 }

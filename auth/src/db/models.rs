@@ -16,6 +16,7 @@ pub struct UserLogin {
 }
 
 #[derive(Queryable, AsChangeset, Serialize, Deserialize)]
+#[changeset_options(treat_none_as_null="true")]
 pub struct User {
     pub id: String,
     pub display_name: String,

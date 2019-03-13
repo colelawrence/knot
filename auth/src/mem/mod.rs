@@ -84,7 +84,7 @@ impl MemExecutor {
                         RespValue::SimpleString(_) => Ok(()),
                         RespValue::Error(err) => Err(mem_error("set_json error", err)),
                         other => Err(mem_error(
-                            "Redis set_json: Unknown response from GET",
+                            "Redis set_json: Unknown response from SET",
                             other,
                         )),
                     },
@@ -158,4 +158,18 @@ fn mem_error<T: Into<String>, U: std::fmt::Debug>(message: T, err: U) -> Error {
     let mstr = message.into();
     error!("mem_error: {}; {:?}", mstr, err);
     Error::InternalServerError
+}
+
+use crate::app::AppState;
+use actix::Addr;
+use actix_web::{FromRequest, HttpRequest};
+
+impl FromRequest<AppState> for MemExecutor {
+    type Config = ();
+    type Result = MemExecutor;
+
+    #[inline]
+    fn from_request(req: &HttpRequest<AppState>, _cfg: &Self::Config) -> Self::Result {
+        req.state().mem.clone()
+    }
 }

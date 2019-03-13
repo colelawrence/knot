@@ -7,6 +7,8 @@ use futures::{
     Future,
 };
 
+use std::convert::From;
+
 use crate::auth::{LoginAccessKey, UserAccessKey};
 
 // 120 minutes
@@ -64,7 +66,7 @@ fn create_login_handoff_r(
 }
 
 /// On callback, assign identity information to the signup session to be used for completing signup
-pub fn iam_callback(mem: &MemExecutor, state: String, i_am: models::IAm) -> AppFuture<()> {
+pub fn link_state_to_i_am(mem: &MemExecutor, state: String, i_am: models::IAm) -> AppFuture<()> {
     let mem: MemExecutor = mem.clone();
     Box::new(
         mem.get_json::<models::StateHandoff>(&state)
@@ -84,10 +86,45 @@ pub fn iam_callback(mem: &MemExecutor, state: String, i_am: models::IAm) -> AppF
     )
 }
 
+/// On callback, assign identity information to the signup session to be used for completing signup
+pub fn link_state_to_user_id(mem: &MemExecutor, state: String, user_id: String) -> AppFuture<()> {
+    let mem: MemExecutor = mem.clone();
+    Box::new(
+        mem.get_json::<models::StateHandoff>(&state)
+            .and_then(|handoff_opt| {
+                handoff_opt.ok_or(Error::BadRequest(String::from(
+                    "Login state handoff does not exist.",
+                )))
+            })
+            .and_then(move |handoff: models::StateHandoff| {
+                link_login_session_to_user_id(&mem, &LoginAccessKey(handoff.session_key), user_id)
+            }),
+    )
+}
+
+/// On callback, assign identity information to the signup session to be used for completing signup
+pub fn link_login_session_to_user_id(
+    mem: &MemExecutor,
+    login: &LoginAccessKey,
+    user_id: String,
+) -> AppFuture<()> {
+    let mem: MemExecutor = mem.clone();
+    Box::new(
+        get_login_session(&mem, login).and_then(
+            move |mut login_session: models::LoginSession| {
+                login_session.user_id = Some(user_id);
+                mem.set_json(&login_session, &SIGNUP_SESSION_EXPIRATION)
+            },
+        ),
+    )
+}
+
 pub fn create_login_access_key(mem: &MemExecutor) -> AppFuture<LoginAccessKey> {
-    Box::new(create_login_access_key_r(mem.clone(), 5).map(
-        |signup_session: models::LoginSession| LoginAccessKey(signup_session.key.to_string()),
-    ))
+    Box::new(
+        create_login_access_key_r(mem.clone(), 5).map(|signup_session: models::LoginSession| {
+            LoginAccessKey(signup_session.key.to_string())
+        }),
+    )
 }
 
 fn create_login_access_key_r(
@@ -109,6 +146,40 @@ fn create_login_access_key_r(
                     Either::B(Either::A(future::err(Error::InternalServerError)))
                 } else {
                     Either::B(Either::B(create_login_access_key_r(mem, attempts_left - 1)))
+                }
+            }),
+    )
+}
+
+use crate::db::models::User;
+
+pub fn create_user_access_key(mem: &MemExecutor, user: User) -> AppFuture<UserAccessKey> {
+    Box::new(
+        create_user_access_key_r(mem.clone(), models::MemUser::from(user), 5)
+            .map(|user_session: models::UserSession| UserAccessKey(user_session.key.to_string())),
+    )
+}
+
+fn create_user_access_key_r(
+    mem: MemExecutor,
+    user: models::MemUser,
+    attempts_left: usize,
+) -> AppFuture<models::UserSession> {
+    let user_session = models::UserSession::from_key_and_user(secure_rand_hex(12), user.clone());
+    Box::new(
+        mem.set_json_if_not_exists(&user_session, &SIGNUP_SESSION_EXPIRATION)
+            .from_err()
+            .and_then(move |success_tf| {
+                if success_tf {
+                    Either::A(future::ok(user_session))
+                } else if attempts_left <= 0 {
+                    error!(
+                        "create_user_access_key_r: Ran out of attempts to create a new user_session! Last tried: {:?}",
+                        user_session.key,
+                    );
+                    Either::B(Either::A(future::err(Error::InternalServerError)))
+                } else {
+                    Either::B(Either::B(create_user_access_key_r(mem, user, attempts_left - 1)))
                 }
             }),
     )
