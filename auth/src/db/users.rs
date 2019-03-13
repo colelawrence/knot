@@ -1,14 +1,7 @@
 use super::{models, schema, DbExecutor};
 use crate::prelude::*;
 use actix::prelude::*;
-use chrono::{DateTime, Utc};
 use diesel::prelude::*;
-
-fn mem_error<T: Into<String>, U: std::fmt::Debug>(message: T, err: U) -> Error {
-    let mstr = message.into();
-    error!("mem_error: {}; {:?}", mstr, err);
-    Error::InternalServerError
-}
 
 fn get_user_login_by_ext_id(
     conn: &PgConnection,
@@ -17,7 +10,7 @@ fn get_user_login_by_ext_id(
     use schema::user_logins::dsl::*;
 
     user_logins
-        .filter(login_key.eq(by_ext_id.to_string()))
+        .filter(external_id.eq(by_ext_id.to_string()))
         .get_result(conn)
         .optional()
         .map_err(|e| db_error("get_user_login_by_ext_id: get_result error", e))
@@ -109,7 +102,7 @@ impl Handler<CreateUser> for DbExecutor {
         use schema::user_logins;
         diesel::insert_into(user_logins::table)
             .values(models::NewUserLogin {
-                login_key: &msg.external_id.to_string(),
+                external_id: &msg.external_id.to_string(),
                 user_id: &created_user.id,
             })
             .execute(&conn)

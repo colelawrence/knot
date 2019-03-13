@@ -1,6 +1,6 @@
 table! {
-    user_logins (login_key) {
-        login_key -> Text,
+    user_logins (external_id) {
+        external_id -> Text,
         user_id -> Text,
     }
 }

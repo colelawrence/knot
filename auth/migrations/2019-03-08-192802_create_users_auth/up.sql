@@ -48,7 +48,7 @@ CREATE TABLE users (
 -- No personal information
 CREATE TABLE user_logins (
     -- External ID: "goog|people/109727288588076782324"
-    login_key TEXT PRIMARY KEY,
+    external_id TEXT PRIMARY KEY,
     -- Optional (Null if they have not signed up)
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE
 );

@@ -5,18 +5,18 @@ use super::schema::user_logins;
 #[derive(Insertable)]
 #[table_name = "user_logins"]
 pub struct NewUserLogin<'a> {
-    pub login_key: &'a str,
+    pub external_id: &'a str,
     pub user_id: &'a str,
 }
 
 #[derive(Queryable, AsChangeset, PartialEq, Debug, Deserialize, Serialize, Clone)]
 pub struct UserLogin {
-    pub login_key: String,
+    pub external_id: String,
     pub user_id: String,
 }
 
 #[derive(Queryable, AsChangeset, Serialize, Deserialize)]
-#[changeset_options(treat_none_as_null="true")]
+#[changeset_options(treat_none_as_null = "true")]
 pub struct User {
     pub id: String,
     pub display_name: String,
