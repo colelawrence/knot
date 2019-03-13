@@ -1,5 +1,4 @@
 use ring::rand::{SecureRandom, SystemRandom};
-use ring::{digest, pbkdf2};
 
 // This string will be about twice as long as byte_len
 pub fn secure_rand_hex(byte_len: usize) -> String {

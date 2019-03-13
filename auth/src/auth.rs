@@ -1,7 +1,6 @@
 use actix_web::{FromRequest, HttpRequest};
 use futures::future::{result, Future};
 use std::convert::From;
-use std::iter::Iterator;
 
 use super::app::AppState;
 use crate::mem::{models, sessions, MemExecutor};
@@ -161,9 +160,7 @@ impl FromRequest<AppState> for AuthUser {
     }
 }
 
-fn authenticate_login(
-    req: &HttpRequest<AppState>,
-) -> impl Future<Item = AuthLogin, Error = Error> {
+fn authenticate_login(req: &HttpRequest<AppState>) -> impl Future<Item = AuthLogin, Error = Error> {
     let mem: MemExecutor = req.state().mem.clone();
     let pepper = req.state().config.pepper_0.clone();
 
@@ -194,9 +191,7 @@ fn authenticate_login(
         })
 }
 
-fn authenticate_user(
-    req: &HttpRequest<AppState>,
-) -> impl Future<Item = AuthUser, Error = Error> {
+fn authenticate_user(req: &HttpRequest<AppState>) -> impl Future<Item = AuthUser, Error = Error> {
     let mem: MemExecutor = req.state().mem.clone();
     let pepper = req.state().config.pepper_0.clone();
 

@@ -15,9 +15,6 @@ use crate::db::{self, users, DbExecutor};
 
 use super::google::clients::{google_oauth_client, google_people_client};
 
-// 10 minutes
-const HANDOFF_EXPIRATION: std::time::Duration = std::time::Duration::from_secs(60 * 10);
-
 // Route handlers ↓
 pub fn create_login_session(
     req: HttpRequest<AppState>,

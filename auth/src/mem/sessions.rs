@@ -109,14 +109,12 @@ pub fn link_login_session_to_user_id(
     user_id: String,
 ) -> AppFuture<()> {
     let mem: MemExecutor = mem.clone();
-    Box::new(
-        get_login_session(&mem, login).and_then(
-            move |mut login_session: models::LoginSession| {
-                login_session.user_id = Some(user_id);
-                mem.set_json(&login_session, &SIGNUP_SESSION_EXPIRATION)
-            },
-        ),
-    )
+    Box::new(get_login_session(&mem, login).and_then(
+        move |mut login_session: models::LoginSession| {
+            login_session.user_id = Some(user_id);
+            mem.set_json(&login_session, &SIGNUP_SESSION_EXPIRATION)
+        },
+    ))
 }
 
 pub fn create_login_access_key(mem: &MemExecutor) -> AppFuture<LoginAccessKey> {

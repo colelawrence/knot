@@ -30,8 +30,6 @@ fn main() {
     }
     env_logger::init();
 
-    let sys = actix::System::new("auth");
-
     let config = Config::default().with_environment();
 
     let bind_address = config

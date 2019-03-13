@@ -1,4 +1,3 @@
-use actix::prelude::*;
 use actix_redis::{Command, RedisActor, RespValue};
 use futures::future::{self, Future};
 

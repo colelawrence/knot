@@ -2,11 +2,7 @@ use crate::db::{new_pool, DbExecutor};
 use crate::mem::MemExecutor;
 use actix::prelude::{Addr, SyncArbiter};
 use actix_redis::RedisActor;
-use actix_web::{
-    http::{header, Method},
-    middleware::Logger,
-    App, HttpRequest,
-};
+use actix_web::{http::Method, middleware::Logger, App, HttpRequest};
 use std::sync::Arc;
 
 mod google;
@@ -54,8 +50,7 @@ pub fn create(config: Config) -> App<AppState> {
                     .resource("login/session", |r| {
                         r.method(Method::POST)
                             .with_async(sessions::create_login_session);
-                        r.method(Method::GET)
-                            .with(sessions::login_session_i_am)
+                        r.method(Method::GET).with(sessions::login_session_i_am)
                     })
                     .resource("login/session/register", |r| {
                         r.method(Method::POST)
@@ -66,8 +61,7 @@ pub fn create(config: Config) -> App<AppState> {
                             .with_async(sessions::create_user_session)
                     })
                     .resource("me", |r| {
-                        r.method(Method::GET)
-                            .with(sessions::user_session_i_am)
+                        r.method(Method::GET).with(sessions::user_session_i_am)
                     })
                     .resource("google/login_url", |r| {
                         r.method(Method::POST)
@@ -78,53 +72,4 @@ pub fn create(config: Config) -> App<AppState> {
                     })
             })
         })
-    // .scope("/api", |scope| {
-    //     scope
-    //         // User routes ↓
-    //         .resource("users", |r| {
-    //             r.method(Method::POST).with_async(users::register)
-    //         })
-    //         .resource("users/login", |r| {
-    //             r.method(Method::POST).with_async(users::login)
-    //         })
-    //         .resource("user", |r| {
-    //             r.method(Method::GET).with_async(users::get_current);
-    //             r.method(Method::PUT).with_async(users::update)
-    //         })
-    //         // Profile routes ↓
-    //         .resource("profiles/{username}", |r| {
-    //             r.method(Method::GET).with_async(profiles::get)
-    //         })
-    //         .resource("profiles/{username}/follow", |r| {
-    //             r.method(Method::POST).with_async(profiles::follow);
-    //             r.method(Method::DELETE).with_async(profiles::unfollow)
-    //         })
-    //         // Article routes ↓
-    //         .resource("articles", |r| {
-    //             r.method(Method::GET).with_async(articles::list);
-    //             r.method(Method::POST).with_async(articles::create)
-    //         })
-    //         .resource("articles/feed", |r| {
-    //             r.method(Method::GET).with_async(articles::feed)
-    //         })
-    //         .resource("articles/{slug}", |r| {
-    //             r.method(Method::GET).with_async(articles::get);
-    //             r.method(Method::PUT).with_async(articles::update);
-    //             r.method(Method::DELETE).with_async(articles::delete)
-    //         })
-    //         .resource("articles/{slug}/favorite", |r| {
-    //             r.method(Method::POST).with_async(articles::favorite);
-    //             r.method(Method::DELETE).with_async(articles::unfavorite)
-    //         })
-    //         .resource("articles/{slug}/comments", |r| {
-    //             r.method(Method::GET).with_async(articles::comments::list);
-    //             r.method(Method::POST).with_async(articles::comments::add)
-    //         })
-    //         .resource("articles/{slug}/comments/{comment_id}", |r| {
-    //             r.method(Method::DELETE)
-    //                 .with_async(articles::comments::delete)
-    //         })
-    //         // Tags routes ↓
-    //         .resource("tags", |r| r.method(Method::GET).with_async(tags::get))
-    // })
 }
