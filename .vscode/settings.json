@@ -5,5 +5,7 @@
   },
   "emmet.includeLanguages": {
     "jinja-html": "html"
-  }
+  },
+  "elm.compiler": "./web/node_modules/.bin/elm",
+  "elm.makeCommand": "./web/node_modules/.bin/elm-make"
 }

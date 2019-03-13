@@ -1,0 +1,11 @@
+{
+  "name": "web",
+  "version": "0.0.1",
+  "description": "Knot web user interface",
+  "author": "Cole Lawrence <cole@reaktor.com>",
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "elm": "^0.19.0-bugfix6"
+  }
+}
