@@ -24,12 +24,14 @@ pub use models::IAm;
 pub fn create_login_handoff(
     mem: &MemExecutor,
     login_access_key: &LoginAccessKey,
+    redirect_uri: Option<&String>
 ) -> AppFuture<HandoffState> {
     let mem: MemExecutor = mem.clone();
+    let redirect_uri = redirect_uri.cloned();
     Box::new(get_login_session(&mem, login_access_key).and_then(
         move |auth: models::LoginSession| {
             let signup_session_key = auth.key.clone();
-            create_login_handoff_r(mem.clone(), signup_session_key, 5).and_then(
+            create_login_handoff_r(mem.clone(), signup_session_key, redirect_uri, 5).and_then(
                 move |state_handoff| {
                     let state = state_handoff.key.clone();
                     mem.set_json(&auth, &SIGNUP_SESSION_EXPIRATION)
@@ -43,9 +45,10 @@ pub fn create_login_handoff(
 fn create_login_handoff_r(
     mem: MemExecutor,
     session_key: String,
+    redirect_uri: Option<String>,
     attempts_left: usize,
 ) -> AppFuture<models::StateHandoff> {
-    let handoff = models::StateHandoff::login(&secure_rand_hex(12), &session_key);
+    let handoff = models::StateHandoff::login(&secure_rand_hex(12), &session_key, redirect_uri.as_ref());
     Box::new(
         mem.set_json_if_not_exists(&handoff, &HANDOFF_EXPIRATION)
             .from_err()
@@ -59,14 +62,14 @@ fn create_login_handoff_r(
                     );
                     Either::B(Either::A(future::err(Error::InternalServerError)))
                 } else {
-                    Either::B(Either::B(create_login_handoff_r(mem, session_key, attempts_left - 1)))
+                    Either::B(Either::B(create_login_handoff_r(mem, session_key, redirect_uri, attempts_left - 1)))
                 }
             }),
     )
 }
 
 /// On callback, assign identity information to the signup session to be used for completing signup
-pub fn link_state_to_i_am(mem: &MemExecutor, state: String, i_am: models::IAm) -> AppFuture<()> {
+pub fn link_state_to_i_am(mem: &MemExecutor, state: String, i_am: models::IAm) -> AppFuture<LinkOutput> {
     let mem: MemExecutor = mem.clone();
     Box::new(
         mem.get_json::<models::StateHandoff>(&state)
@@ -76,18 +79,25 @@ pub fn link_state_to_i_am(mem: &MemExecutor, state: String, i_am: models::IAm) -
                 )))
             })
             .and_then(move |handoff: models::StateHandoff| {
+                let redirect_uri_opt = handoff.redirect_uri;
                 get_login_session(&mem, &LoginAccessKey(handoff.session_key)).and_then(
                     move |mut login_session: models::LoginSession| {
                         login_session.i_am = Some(i_am);
                         mem.set_json(&login_session, &SIGNUP_SESSION_EXPIRATION)
                     },
-                )
+                ).map(|_| LinkOutput {
+                    redirect_uri_opt: redirect_uri_opt,
+                })
             }),
     )
 }
 
+pub struct LinkOutput {
+    pub redirect_uri_opt: Option<String>,
+}
+
 /// On callback, assign identity information to the signup session to be used for completing signup
-pub fn link_state_to_user_id(mem: &MemExecutor, state: String, user_id: String) -> AppFuture<()> {
+pub fn link_state_to_user_id(mem: &MemExecutor, state: String, user_id: String) -> AppFuture<LinkOutput> {
     let mem: MemExecutor = mem.clone();
     Box::new(
         mem.get_json::<models::StateHandoff>(&state)
@@ -97,7 +107,10 @@ pub fn link_state_to_user_id(mem: &MemExecutor, state: String, user_id: String) 
                 )))
             })
             .and_then(move |handoff: models::StateHandoff| {
-                link_login_session_to_user_id(&mem, &LoginAccessKey(handoff.session_key), user_id)
+                let redirect_uri_opt = handoff.redirect_uri;
+                link_login_session_to_user_id(&mem, &LoginAccessKey(handoff.session_key), user_id).map(|_| LinkOutput {
+                    redirect_uri_opt: redirect_uri_opt,
+                })
             }),
     )
 }

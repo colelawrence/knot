@@ -121,13 +121,20 @@ pub fn user_session_i_am(user: auth::AuthUser) -> HttpResponse {
     }))
 }
 
+#[derive(Deserialize)]
+pub struct LoginUrlQuery {
+    redirect_uri: Option<String>,
+}
+
 pub fn create_google_login_url(
-    (login, req): (auth::AuthLogin, HttpRequest<AppState>),
+    (login, req, query): (auth::AuthLogin, HttpRequest<AppState>, Query<LoginUrlQuery>),
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     let settings: Arc<Config> = req.state().config.clone();
     let mem: MemExecutor = req.state().mem.clone();
 
-    sessions::create_login_handoff(&mem, &login.access_key)
+    let redirect_uri_opt = query.redirect_uri.as_ref();
+
+    sessions::create_login_handoff(&mem, &login.access_key, redirect_uri_opt)
         .map(move |handoff_state: sessions::HandoffState| {
             google_oauth_client::get_login_url(
                 &handoff_state.0,
@@ -214,7 +221,12 @@ pub fn google_callback(
                         }
                     },
                 )
-                .map(|_| HttpResponse::Found().header("Location", "/").finish()),
+                .map(|link_output: sessions::LinkOutput| {
+                    let redirect_to = link_output.redirect_uri_opt.unwrap_or(String::from("/"));
+                    HttpResponse::Found()
+                        .header("Location", redirect_to)
+                        .finish()
+                }),
             )
         } else {
             Box::new(future::err(Error::BadRequest(format!("Missing state"))))

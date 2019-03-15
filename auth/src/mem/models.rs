@@ -86,13 +86,16 @@ pub struct StateHandoff {
     pub key: String,
     #[serde(rename = "sk")]
     pub session_key: String,
+    #[serde(rename = "ru", skip_serializing_if = "Option::is_none")]
+    pub redirect_uri: Option<String>,
 }
 
 impl StateHandoff {
-    pub fn login(key: &str, login_access_key: &str) -> Self {
+    pub fn login(key: &str, login_access_key: &str, redirect_uri: Option<&String>) -> Self {
         StateHandoff {
             key: key.to_string(),
             session_key: login_access_key.to_string(),
+            redirect_uri: redirect_uri.cloned(),
         }
     }
 }

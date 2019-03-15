@@ -1,0 +1,35 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Collect</title>
+  <script type="text/javascript" src="elm.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<div id="elm-node"></div>
+</body>
+
+<script type="text/javascript">
+var storedUserToken = localStorage.getItem('elm-user-token');
+var startingUser = storedUserToken ? JSON.parse(storedUserToken) : null;
+var storedLoginToken = localStorage.getItem('elm-login-token');
+var startingLogin = storedLoginToken ? JSON.parse(storedLoginToken) : null;
+var app = Elm.Main.init({
+  flags: { loginToken: startingLogin, userToken: startingUser },
+  node: document.getElementById("elm-node")
+});
+app.ports.setUserToken.subscribe(function(state) {
+    localStorage.setItem('elm-user-token', JSON.stringify(state));
+});
+app.ports.setLoginToken.subscribe(function(state) {
+    localStorage.setItem('elm-login-token', JSON.stringify(state));
+});
+window.addEventListener("focus", function () {
+  app.ports.focus.send("")
+})
+</script>
+
+</html>
