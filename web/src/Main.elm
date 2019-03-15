@@ -157,7 +157,7 @@ init maybePersistentState =
                     case persistentState.loginToken of
                         Just loginToken ->
                             ( Model (NotLoggedIn (loginSessionInit loginToken)) [ "Checking login status" ]
-                            , initializeWithLoginToken loginToken
+                            , Cmd.map GotLoginMsg (initializeWithLoginToken loginToken)
                             )
 
                         Nothing ->
@@ -173,6 +173,7 @@ init maybePersistentState =
 
 type LoginMsg
     = GotLoginUrl (Result Http.Error String)
+    | GotLoginSession (Result Http.Error LoginSessionJson)
     | WindowFocus
 
 
@@ -185,7 +186,6 @@ type Msg
     | GotUserToken (Result Http.Error String)
     | RegisteredUser (Result Http.Error String)
     | GotMe (Result Http.Error UserSessionJson)
-    | GotLoginSession (Result Http.Error LoginSessionJson)
     | GotLoginMsg LoginMsg
     | GotUserMsg UserMsg
     | LogOut
@@ -231,7 +231,7 @@ update msg model =
                 Err _ ->
                     ( applyMessages [ error "Failed to retrieve registered user with login token" ] model, Cmd.none )
 
-        ( GotLoginSession result, _ ) ->
+        ( GotLoginMsg (GotLoginSession result), _ ) ->
             case result of
                 Ok loginJson ->
                     case loginJson.userId of
@@ -306,7 +306,11 @@ updateLoginSession msg model =
                     ( { model | loginUrl = Failure }, [ error "Failed to retrieve " ], Cmd.none )
 
         WindowFocus ->
-            ( model, [ error "Don't know how to check login after refocus" ], Cmd.none )
+            ( model, [], initializeWithLoginToken model.loginToken )
+
+        GotLoginSession _ ->
+            -- TODO: figure out an architecture which supports the handoff between logging in to logged in
+            ( model, [ error "Should have been handled" ], Cmd.none )
 
 
 updateLoading : Msg -> LoginSession -> ( LoginSession, FlashMessages, Cmd Msg )
@@ -401,7 +405,7 @@ initializeWithUserToken userToken =
         }
 
 
-initializeWithLoginToken : String -> Cmd Msg
+initializeWithLoginToken : String -> Cmd LoginMsg
 initializeWithLoginToken loginToken =
     authRequest
         { method = "GET"

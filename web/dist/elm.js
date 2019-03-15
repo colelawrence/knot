@@ -4485,6 +4485,9 @@ function _Browser_load(url)
 		}
 	}));
 }
+var author$project$Main$GotLoginMsg = function (a) {
+	return {$: 'GotLoginMsg', a: a};
+};
 var author$project$Main$Loading = {$: 'Loading'};
 var author$project$Main$Model = F2(
 	function (auth, messages) {
@@ -5976,6 +5979,7 @@ var author$project$Main$LoginSession = F3(
 var author$project$Main$loginSessionInit = function (token) {
 	return A3(author$project$Main$LoginSession, token, author$project$Main$Inactive, elm$core$Maybe$Nothing);
 };
+var elm$core$Platform$Cmd$map = _Platform_map;
 var author$project$Main$init = function (maybePersistentState) {
 	var defaultLoading = _Utils_Tuple2(
 		A2(author$project$Main$Model, author$project$Main$Loading, _List_Nil),
@@ -6003,7 +6007,10 @@ var author$project$Main$init = function (maybePersistentState) {
 							author$project$Main$loginSessionInit(loginToken)),
 						_List_fromArray(
 							['Checking login status'])),
-					author$project$Main$initializeWithLoginToken(loginToken));
+					A2(
+						elm$core$Platform$Cmd$map,
+						author$project$Main$GotLoginMsg,
+						author$project$Main$initializeWithLoginToken(loginToken)));
 			} else {
 				return defaultLoading;
 			}
@@ -6011,9 +6018,6 @@ var author$project$Main$init = function (maybePersistentState) {
 	} else {
 		return defaultLoading;
 	}
-};
-var author$project$Main$GotLoginMsg = function (a) {
-	return {$: 'GotLoginMsg', a: a};
 };
 var author$project$Main$WindowFocus = {$: 'WindowFocus'};
 var author$project$Main$focus = _Platform_incomingPort('focus', elm$json$Json$Decode$string);
@@ -6130,37 +6134,43 @@ var elm$core$Platform$Cmd$batch = _Platform_batch;
 var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
 var author$project$Main$updateLoginSession = F2(
 	function (msg, model) {
-		if (msg.$ === 'GotLoginUrl') {
-			var result = msg.a;
-			if (result.$ === 'Ok') {
-				var url = result.a;
+		switch (msg.$) {
+			case 'GotLoginUrl':
+				var result = msg.a;
+				if (result.$ === 'Ok') {
+					var url = result.a;
+					return _Utils_Tuple3(
+						_Utils_update(
+							model,
+							{
+								loginUrl: author$project$Main$Success(url)
+							}),
+						_List_Nil,
+						elm$core$Platform$Cmd$none);
+				} else {
+					return _Utils_Tuple3(
+						_Utils_update(
+							model,
+							{loginUrl: author$project$Main$Failure}),
+						_List_fromArray(
+							[
+								author$project$Main$error('Failed to retrieve ')
+							]),
+						elm$core$Platform$Cmd$none);
+				}
+			case 'WindowFocus':
 				return _Utils_Tuple3(
-					_Utils_update(
-						model,
-						{
-							loginUrl: author$project$Main$Success(url)
-						}),
+					model,
 					_List_Nil,
-					elm$core$Platform$Cmd$none);
-			} else {
+					author$project$Main$initializeWithLoginToken(model.loginToken));
+			default:
 				return _Utils_Tuple3(
-					_Utils_update(
-						model,
-						{loginUrl: author$project$Main$Failure}),
+					model,
 					_List_fromArray(
 						[
-							author$project$Main$error('Failed to retrieve ')
+							author$project$Main$error('Should have been handled')
 						]),
 					elm$core$Platform$Cmd$none);
-			}
-		} else {
-			return _Utils_Tuple3(
-				model,
-				_List_fromArray(
-					[
-						author$project$Main$error('Don\'t know how to check login after refocus')
-					]),
-				elm$core$Platform$Cmd$none);
 		}
 	});
 var author$project$Main$updateUserSession = F2(
@@ -6172,7 +6182,6 @@ var author$project$Main$updateUserSession = F2(
 				[message]),
 			elm$core$Platform$Cmd$none);
 	});
-var elm$core$Platform$Cmd$map = _Platform_map;
 var author$project$Main$updateWith = F4(
 	function (toAuth, toMsg, model, _n0) {
 		var subModel = _n0.a;
@@ -6271,46 +6280,6 @@ var author$project$Main$update = F2(
 						} else {
 							break _n0$8;
 						}
-					case 'GotLoginSession':
-						var result = _n0.a.a;
-						if (result.$ === 'Ok') {
-							var loginJson = result.a;
-							var _n5 = loginJson.userId;
-							if (_n5.$ === 'Just') {
-								return _Utils_Tuple2(
-									model,
-									author$project$Main$getUserAccessToken(loginJson.loginToken));
-							} else {
-								var _n6 = loginJson.displayName;
-								if (_n6.$ === 'Just') {
-									return _Utils_Tuple2(
-										model,
-										author$project$Main$registerUser(loginJson.loginToken));
-								} else {
-									return _Utils_Tuple2(
-										_Utils_update(
-											model,
-											{
-												auth: author$project$Main$NotLoggedIn(
-													A3(author$project$Main$LoginSession, loginJson.loginToken, author$project$Main$Inactive, loginJson.userId))
-											}),
-										A2(
-											elm$core$Platform$Cmd$map,
-											author$project$Main$GotLoginMsg,
-											author$project$Main$getLoginUrl(loginJson.loginToken)));
-								}
-							}
-						} else {
-							return _Utils_Tuple2(
-								A2(
-									author$project$Main$applyMessages,
-									_List_fromArray(
-										[
-											author$project$Main$error('Failed to check login session')
-										]),
-									A2(author$project$Main$Model, author$project$Main$Loading, _List_Nil)),
-								author$project$Main$getLoginAccessToken);
-						}
 					case 'GotMe':
 						var result = _n0.a.a;
 						if (result.$ === 'Ok') {
@@ -6338,17 +6307,59 @@ var author$project$Main$update = F2(
 								elm$core$Platform$Cmd$none);
 						}
 					case 'GotLoginMsg':
-						if (_n0.b.$ === 'NotLoggedIn') {
-							var subMsg = _n0.a.a;
-							var loginModel = _n0.b.a;
-							return A4(
-								author$project$Main$updateWith,
-								author$project$Main$NotLoggedIn,
-								author$project$Main$GotLoginMsg,
-								model,
-								A2(author$project$Main$updateLoginSession, subMsg, loginModel));
+						if (_n0.a.a.$ === 'GotLoginSession') {
+							var result = _n0.a.a.a;
+							if (result.$ === 'Ok') {
+								var loginJson = result.a;
+								var _n5 = loginJson.userId;
+								if (_n5.$ === 'Just') {
+									return _Utils_Tuple2(
+										model,
+										author$project$Main$getUserAccessToken(loginJson.loginToken));
+								} else {
+									var _n6 = loginJson.displayName;
+									if (_n6.$ === 'Just') {
+										return _Utils_Tuple2(
+											model,
+											author$project$Main$registerUser(loginJson.loginToken));
+									} else {
+										return _Utils_Tuple2(
+											_Utils_update(
+												model,
+												{
+													auth: author$project$Main$NotLoggedIn(
+														A3(author$project$Main$LoginSession, loginJson.loginToken, author$project$Main$Inactive, loginJson.userId))
+												}),
+											A2(
+												elm$core$Platform$Cmd$map,
+												author$project$Main$GotLoginMsg,
+												author$project$Main$getLoginUrl(loginJson.loginToken)));
+									}
+								}
+							} else {
+								return _Utils_Tuple2(
+									A2(
+										author$project$Main$applyMessages,
+										_List_fromArray(
+											[
+												author$project$Main$error('Failed to check login session')
+											]),
+										A2(author$project$Main$Model, author$project$Main$Loading, _List_Nil)),
+									author$project$Main$getLoginAccessToken);
+							}
 						} else {
-							break _n0$8;
+							if (_n0.b.$ === 'NotLoggedIn') {
+								var subMsg = _n0.a.a;
+								var loginModel = _n0.b.a;
+								return A4(
+									author$project$Main$updateWith,
+									author$project$Main$NotLoggedIn,
+									author$project$Main$GotLoginMsg,
+									model,
+									A2(author$project$Main$updateLoginSession, subMsg, loginModel));
+							} else {
+								break _n0$8;
+							}
 						}
 					case 'GotUserMsg':
 						if (_n0.b.$ === 'LoggedIn') {
