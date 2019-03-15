@@ -348,7 +348,7 @@ view model =
                 LoggedIn userSession ->
                     Html.div []
                         [ viewUser userSession
-                        , Html.button [onClick LogOut] [ text "Log out" ]
+                        , Html.button [ onClick LogOut ] [ text "Log out" ]
                         ]
 
                 NotLoggedIn loginSession ->
