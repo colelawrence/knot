@@ -16,7 +16,7 @@ log = "0.4.6"
 actix = "0.7"
 actix-web = { version = "0.7", features = ["default", "ssl"] }
 actix-redis = "0.5"
-diesel = { version = "1.4.1", features = ["postgres", "r2d2", "chrono"] }
+diesel = { version = "1.4.6", features = ["postgres", "r2d2", "chrono"] }
 listenfd = "0.3"
 redis-async = "^0.4"
 ring = "0.13.5"
